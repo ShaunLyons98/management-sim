@@ -36,9 +36,15 @@ import { GameStateService, GameState, Aircraft, AIRPORTS } from '../../services/
             </div>
 
             <div class="ac-specs">
-              <span class="chip">{{ ac.capacity }} pax</span>
+              <span class="chip">{{ ac.capacity }} seats</span>
               <span class="chip">{{ ac.range | number }} km range</span>
               <span class="chip">{{ ac.speed }} km/h</span>
+            </div>
+
+            <div class="ac-classes">
+              <span class="class-badge eco">Y {{ ac.seatConfig.economy }}</span>
+              <span class="class-badge biz">J {{ ac.seatConfig.business }}</span>
+              <span class="class-badge first" *ngIf="ac.seatConfig.first > 0">F {{ ac.seatConfig.first }}</span>
             </div>
 
             <div class="ac-status">
@@ -51,6 +57,10 @@ import { GameStateService, GameState, Aircraft, AIRPORTS } from '../../services/
             </div>
 
             <div class="ac-actions">
+              <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px"
+                      (click)="router.navigate(['/configure-aircraft', ac.id])">
+                Configure
+              </button>
               <button class="btn btn-danger" style="padding:6px 12px;font-size:12px" (click)="sell(ac)">
                 Sell ({{ (ac.cost * 0.5) | currency:'USD':'symbol':'1.0-0' }})
               </button>
@@ -122,21 +132,22 @@ import { GameStateService, GameState, Aircraft, AIRPORTS } from '../../services/
     .aircraft-row {
       display: flex;
       align-items: center;
-      gap: 20px;
-      padding: 16px 20px;
+      gap: 16px;
+      padding: 14px 20px;
+      flex-wrap: wrap;
     }
 
     .ac-info {
       display: flex;
       align-items: center;
       gap: 12px;
-      min-width: 200px;
+      min-width: 180px;
     }
 
     .ac-icon-sm {
-      font-size: 24px;
-      width: 42px;
-      height: 42px;
+      font-size: 22px;
+      width: 40px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -144,26 +155,47 @@ import { GameStateService, GameState, Aircraft, AIRPORTS } from '../../services/
       border-radius: 10px;
     }
 
-    .ac-name { font-weight: 700; font-size: 15px; }
+    .ac-name { font-weight: 700; font-size: 14px; }
     .ac-model-sm { font-size: 12px; color: var(--text-secondary); }
 
     .ac-specs {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       flex: 1;
       flex-wrap: wrap;
     }
+
+    .ac-classes {
+      display: flex;
+      gap: 6px;
+    }
+
+    .class-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .class-badge.eco { background: #e3f2fd; color: #1565c0; }
+    .class-badge.biz { background: #e8f5e9; color: #2e7d32; }
+    .class-badge.first { background: #fff8e1; color: #f57c00; }
 
     .ac-status {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      min-width: 120px;
+      min-width: 100px;
     }
 
-    .route-info { font-size: 12px; color: var(--text-secondary); }
+    .route-info { font-size: 11px; color: var(--text-secondary); }
 
-    .ac-actions { margin-left: auto; }
+    .ac-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
   `]
 })
 export class ManageAircraftComponent implements OnInit {
@@ -176,7 +208,7 @@ export class ManageAircraftComponent implements OnInit {
   }
 
   sell(ac: Aircraft): void {
-    if (confirm(`Sell ${ac.name} for $${Math.floor(ac.cost * 0.5).toLocaleString()}?`)) {
+    if (confirm(`Sell ${ac.name} for ${(ac.cost * 0.5).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}?`)) {
       this.gameState.sellAircraft(ac.id);
     }
   }
@@ -192,3 +224,4 @@ export class ManageAircraftComponent implements OnInit {
 
   goBack(): void { this.router.navigate(['/game']); }
 }
+

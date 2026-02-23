@@ -1,6 +1,17 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
+export interface PassengerMix {
+  /** Annual throughput in millions */
+  annualPax: number;
+  /** Fraction travelling economy (0–1) */
+  ecoShare: number;
+  /** Fraction travelling business (0–1) */
+  businessShare: number;
+  /** Fraction travelling first class (0–1) */
+  firstShare: number;
+}
+
 export interface Airport {
   id: string;
   name: string;
@@ -10,6 +21,7 @@ export interface Airport {
   lat: number;
   lng: number;
   slots: number;
+  passengerMix: PassengerMix;
 }
 
 export interface Hub {
@@ -18,16 +30,24 @@ export interface Hub {
   cost: number;
 }
 
+export interface SeatConfig {
+  economy: number;
+  business: number;
+  first: number;
+}
+
 export interface Aircraft {
   id: string;
   name: string;
   model: string;
+  /** Total seat capacity (sum of seatConfig when configured) */
   capacity: number;
   range: number;
   speed: number;
   cost: number;
   operatingCost: number;
   assignedRouteId?: string;
+  seatConfig: SeatConfig;
 }
 
 export interface Route {
@@ -35,9 +55,23 @@ export interface Route {
   fromAirportId: string;
   toAirportId: string;
   aircraftId?: string;
+  /** Base economy ticket price */
   price: number;
   distance: number;
   active: boolean;
+}
+
+/** A single scheduled flight slot within the weekly schedule */
+export interface ScheduleSlot {
+  id: string;
+  routeId: string;
+  aircraftId: string;
+  /** 0=Mon … 6=Sun */
+  dayOfWeek: number;
+  /** Departure hour (0–23) */
+  departureHour: number;
+  /** Departure minute (0 or 30) */
+  departureMinute: number;
 }
 
 export interface GameState {
@@ -50,46 +84,56 @@ export interface GameState {
   aircraft: Aircraft[];
   routes: Route[];
   hubs: Hub[];
+  schedule: ScheduleSlot[];
 }
 
 export const AIRPORTS: Airport[] = [
-  { id: 'LHR', name: 'Heathrow Airport', city: 'London', country: 'UK', iata: 'LHR', lat: 51.4775, lng: -0.4614, slots: 10 },
-  { id: 'JFK', name: 'John F. Kennedy International', city: 'New York', country: 'USA', iata: 'JFK', lat: 40.6413, lng: -73.7781, slots: 10 },
-  { id: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'France', iata: 'CDG', lat: 49.0097, lng: 2.5479, slots: 10 },
-  { id: 'DXB', name: 'Dubai International Airport', city: 'Dubai', country: 'UAE', iata: 'DXB', lat: 25.2532, lng: 55.3657, slots: 10 },
-  { id: 'NRT', name: 'Narita International Airport', city: 'Tokyo', country: 'Japan', iata: 'NRT', lat: 35.7647, lng: 140.3864, slots: 10 },
-  { id: 'SIN', name: 'Singapore Changi Airport', city: 'Singapore', country: 'Singapore', iata: 'SIN', lat: 1.3644, lng: 103.9915, slots: 10 },
-  { id: 'SYD', name: 'Sydney Airport', city: 'Sydney', country: 'Australia', iata: 'SYD', lat: -33.9399, lng: 151.1753, slots: 10 },
-  { id: 'GRU', name: 'São Paulo-Guarulhos International', city: 'São Paulo', country: 'Brazil', iata: 'GRU', lat: -23.4356, lng: -46.4731, slots: 10 },
-  { id: 'YYZ', name: 'Toronto Pearson International', city: 'Toronto', country: 'Canada', iata: 'YYZ', lat: 43.6777, lng: -79.6248, slots: 10 },
-  { id: 'FRA', name: 'Frankfurt Airport', city: 'Frankfurt', country: 'Germany', iata: 'FRA', lat: 50.0379, lng: 8.5622, slots: 10 },
-  { id: 'AMS', name: 'Amsterdam Airport Schiphol', city: 'Amsterdam', country: 'Netherlands', iata: 'AMS', lat: 52.3086, lng: 4.7639, slots: 10 },
-  { id: 'HKG', name: 'Hong Kong International', city: 'Hong Kong', country: 'China', iata: 'HKG', lat: 22.3080, lng: 113.9185, slots: 10 },
-  { id: 'ICN', name: 'Incheon International Airport', city: 'Seoul', country: 'South Korea', iata: 'ICN', lat: 37.4602, lng: 126.4407, slots: 10 },
-  { id: 'LAX', name: 'Los Angeles International', city: 'Los Angeles', country: 'USA', iata: 'LAX', lat: 33.9425, lng: -118.4081, slots: 10 },
-  { id: 'ORD', name: "O'Hare International Airport", city: 'Chicago', country: 'USA', iata: 'ORD', lat: 41.9742, lng: -87.9073, slots: 10 },
-  { id: 'MAD', name: 'Adolfo Suárez Madrid-Barajas', city: 'Madrid', country: 'Spain', iata: 'MAD', lat: 40.4936, lng: -3.5668, slots: 10 },
-  { id: 'BCN', name: 'Barcelona–El Prat Airport', city: 'Barcelona', country: 'Spain', iata: 'BCN', lat: 41.2971, lng: 2.0785, slots: 10 },
-  { id: 'MXP', name: 'Milan Malpensa Airport', city: 'Milan', country: 'Italy', iata: 'MXP', lat: 45.6306, lng: 8.7281, slots: 10 },
-  { id: 'BKK', name: 'Suvarnabhumi Airport', city: 'Bangkok', country: 'Thailand', iata: 'BKK', lat: 13.6900, lng: 100.7501, slots: 10 },
-  { id: 'MEX', name: 'Mexico City International', city: 'Mexico City', country: 'Mexico', iata: 'MEX', lat: 19.4363, lng: -99.0721, slots: 10 },
-  { id: 'JNB', name: 'O.R. Tambo International', city: 'Johannesburg', country: 'South Africa', iata: 'JNB', lat: -26.1367, lng: 28.2411, slots: 10 },
-  { id: 'CAI', name: 'Cairo International Airport', city: 'Cairo', country: 'Egypt', iata: 'CAI', lat: 30.1219, lng: 31.4056, slots: 10 },
-  { id: 'MUC', name: 'Munich Airport', city: 'Munich', country: 'Germany', iata: 'MUC', lat: 48.3538, lng: 11.7861, slots: 10 },
-  { id: 'ZRH', name: 'Zurich Airport', city: 'Zurich', country: 'Switzerland', iata: 'ZRH', lat: 47.4647, lng: 8.5492, slots: 10 },
-  { id: 'CPT', name: 'Cape Town International', city: 'Cape Town', country: 'South Africa', iata: 'CPT', lat: -33.9715, lng: 18.6021, slots: 10 },
+  { id: 'LHR', name: 'Heathrow Airport', city: 'London', country: 'UK', iata: 'LHR', lat: 51.4775, lng: -0.4614, slots: 10, passengerMix: { annualPax: 80.9, ecoShare: 0.72, businessShare: 0.22, firstShare: 0.06 } },
+  { id: 'JFK', name: 'John F. Kennedy International', city: 'New York', country: 'USA', iata: 'JFK', lat: 40.6413, lng: -73.7781, slots: 10, passengerMix: { annualPax: 62.6, ecoShare: 0.75, businessShare: 0.20, firstShare: 0.05 } },
+  { id: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'France', iata: 'CDG', lat: 49.0097, lng: 2.5479, slots: 10, passengerMix: { annualPax: 76.2, ecoShare: 0.74, businessShare: 0.21, firstShare: 0.05 } },
+  { id: 'DXB', name: 'Dubai International Airport', city: 'Dubai', country: 'UAE', iata: 'DXB', lat: 25.2532, lng: 55.3657, slots: 10, passengerMix: { annualPax: 86.4, ecoShare: 0.70, businessShare: 0.24, firstShare: 0.06 } },
+  { id: 'NRT', name: 'Narita International Airport', city: 'Tokyo', country: 'Japan', iata: 'NRT', lat: 35.7647, lng: 140.3864, slots: 10, passengerMix: { annualPax: 35.5, ecoShare: 0.76, businessShare: 0.19, firstShare: 0.05 } },
+  { id: 'SIN', name: 'Singapore Changi Airport', city: 'Singapore', country: 'Singapore', iata: 'SIN', lat: 1.3644, lng: 103.9915, slots: 10, passengerMix: { annualPax: 68.3, ecoShare: 0.71, businessShare: 0.23, firstShare: 0.06 } },
+  { id: 'SYD', name: 'Sydney Airport', city: 'Sydney', country: 'Australia', iata: 'SYD', lat: -33.9399, lng: 151.1753, slots: 10, passengerMix: { annualPax: 44.4, ecoShare: 0.78, businessShare: 0.18, firstShare: 0.04 } },
+  { id: 'GRU', name: 'São Paulo-Guarulhos International', city: 'São Paulo', country: 'Brazil', iata: 'GRU', lat: -23.4356, lng: -46.4731, slots: 10, passengerMix: { annualPax: 41.0, ecoShare: 0.80, businessShare: 0.17, firstShare: 0.03 } },
+  { id: 'YYZ', name: 'Toronto Pearson International', city: 'Toronto', country: 'Canada', iata: 'YYZ', lat: 43.6777, lng: -79.6248, slots: 10, passengerMix: { annualPax: 50.5, ecoShare: 0.77, businessShare: 0.19, firstShare: 0.04 } },
+  { id: 'FRA', name: 'Frankfurt Airport', city: 'Frankfurt', country: 'Germany', iata: 'FRA', lat: 50.0379, lng: 8.5622, slots: 10, passengerMix: { annualPax: 70.5, ecoShare: 0.73, businessShare: 0.22, firstShare: 0.05 } },
+  { id: 'AMS', name: 'Amsterdam Airport Schiphol', city: 'Amsterdam', country: 'Netherlands', iata: 'AMS', lat: 52.3086, lng: 4.7639, slots: 10, passengerMix: { annualPax: 71.7, ecoShare: 0.75, businessShare: 0.20, firstShare: 0.05 } },
+  { id: 'HKG', name: 'Hong Kong International', city: 'Hong Kong', country: 'China', iata: 'HKG', lat: 22.3080, lng: 113.9185, slots: 10, passengerMix: { annualPax: 71.5, ecoShare: 0.69, businessShare: 0.24, firstShare: 0.07 } },
+  { id: 'ICN', name: 'Incheon International Airport', city: 'Seoul', country: 'South Korea', iata: 'ICN', lat: 37.4602, lng: 126.4407, slots: 10, passengerMix: { annualPax: 71.2, ecoShare: 0.74, businessShare: 0.21, firstShare: 0.05 } },
+  { id: 'LAX', name: 'Los Angeles International', city: 'Los Angeles', country: 'USA', iata: 'LAX', lat: 33.9425, lng: -118.4081, slots: 10, passengerMix: { annualPax: 88.1, ecoShare: 0.76, businessShare: 0.19, firstShare: 0.05 } },
+  { id: 'ORD', name: "O'Hare International Airport", city: 'Chicago', country: 'USA', iata: 'ORD', lat: 41.9742, lng: -87.9073, slots: 10, passengerMix: { annualPax: 79.8, ecoShare: 0.78, businessShare: 0.18, firstShare: 0.04 } },
+  { id: 'MAD', name: 'Adolfo Suárez Madrid-Barajas', city: 'Madrid', country: 'Spain', iata: 'MAD', lat: 40.4936, lng: -3.5668, slots: 10, passengerMix: { annualPax: 61.8, ecoShare: 0.77, businessShare: 0.19, firstShare: 0.04 } },
+  { id: 'BCN', name: 'Barcelona–El Prat Airport', city: 'Barcelona', country: 'Spain', iata: 'BCN', lat: 41.2971, lng: 2.0785, slots: 10, passengerMix: { annualPax: 52.7, ecoShare: 0.79, businessShare: 0.17, firstShare: 0.04 } },
+  { id: 'MXP', name: 'Milan Malpensa Airport', city: 'Milan', country: 'Italy', iata: 'MXP', lat: 45.6306, lng: 8.7281, slots: 10, passengerMix: { annualPax: 28.8, ecoShare: 0.80, businessShare: 0.17, firstShare: 0.03 } },
+  { id: 'BKK', name: 'Suvarnabhumi Airport', city: 'Bangkok', country: 'Thailand', iata: 'BKK', lat: 13.6900, lng: 100.7501, slots: 10, passengerMix: { annualPax: 65.4, ecoShare: 0.73, businessShare: 0.22, firstShare: 0.05 } },
+  { id: 'MEX', name: 'Mexico City International', city: 'Mexico City', country: 'Mexico', iata: 'MEX', lat: 19.4363, lng: -99.0721, slots: 10, passengerMix: { annualPax: 47.7, ecoShare: 0.81, businessShare: 0.16, firstShare: 0.03 } },
+  { id: 'JNB', name: 'O.R. Tambo International', city: 'Johannesburg', country: 'South Africa', iata: 'JNB', lat: -26.1367, lng: 28.2411, slots: 10, passengerMix: { annualPax: 21.2, ecoShare: 0.79, businessShare: 0.18, firstShare: 0.03 } },
+  { id: 'CAI', name: 'Cairo International Airport', city: 'Cairo', country: 'Egypt', iata: 'CAI', lat: 30.1219, lng: 31.4056, slots: 10, passengerMix: { annualPax: 19.7, ecoShare: 0.82, businessShare: 0.15, firstShare: 0.03 } },
+  { id: 'MUC', name: 'Munich Airport', city: 'Munich', country: 'Germany', iata: 'MUC', lat: 48.3538, lng: 11.7861, slots: 10, passengerMix: { annualPax: 47.9, ecoShare: 0.74, businessShare: 0.21, firstShare: 0.05 } },
+  { id: 'ZRH', name: 'Zurich Airport', city: 'Zurich', country: 'Switzerland', iata: 'ZRH', lat: 47.4647, lng: 8.5492, slots: 10, passengerMix: { annualPax: 31.5, ecoShare: 0.70, businessShare: 0.24, firstShare: 0.06 } },
+  { id: 'CPT', name: 'Cape Town International', city: 'Cape Town', country: 'South Africa', iata: 'CPT', lat: -33.9715, lng: 18.6021, slots: 10, passengerMix: { annualPax: 10.5, ecoShare: 0.80, businessShare: 0.17, firstShare: 0.03 } },
 ];
 
 export const AIRCRAFT_CATALOG: Omit<Aircraft, 'id' | 'assignedRouteId'>[] = [
-  { name: 'Regional Jet', model: 'Bombardier CRJ-900', capacity: 90, range: 2800, speed: 820, cost: 8000000, operatingCost: 1200 },
-  { name: 'Narrowbody', model: 'Boeing 737-800', capacity: 162, range: 5765, speed: 842, cost: 35000000, operatingCost: 2800 },
-  { name: 'Widebody', model: 'Boeing 767-300ER', capacity: 218, range: 11093, speed: 851, cost: 55000000, operatingCost: 4500 },
-  { name: 'Long-Haul Widebody', model: 'Boeing 777-300ER', capacity: 396, range: 13650, speed: 905, cost: 120000000, operatingCost: 7500 },
-  { name: 'Super Jumbo', model: 'Airbus A380', capacity: 555, range: 15200, speed: 903, cost: 180000000, operatingCost: 10000 },
-  { name: 'Next-Gen Narrowbody', model: 'Airbus A320neo', capacity: 165, range: 6300, speed: 833, cost: 42000000, operatingCost: 2600 },
-  { name: 'Next-Gen Widebody', model: 'Boeing 787-9', capacity: 296, range: 14140, speed: 903, cost: 95000000, operatingCost: 5800 },
-  { name: 'Turboprop', model: 'ATR 72-600', capacity: 70, range: 1528, speed: 510, cost: 5000000, operatingCost: 800 },
+  { name: 'Turboprop', model: 'ATR 72-600', capacity: 70, range: 1528, speed: 510, cost: 5000000, operatingCost: 800, seatConfig: { economy: 68, business: 2, first: 0 } },
+  { name: 'Regional Jet', model: 'Bombardier CRJ-900', capacity: 90, range: 2800, speed: 820, cost: 8000000, operatingCost: 1200, seatConfig: { economy: 82, business: 8, first: 0 } },
+  { name: 'Narrowbody', model: 'Boeing 737-800', capacity: 162, range: 5765, speed: 842, cost: 35000000, operatingCost: 2800, seatConfig: { economy: 144, business: 18, first: 0 } },
+  { name: 'Next-Gen Narrowbody', model: 'Airbus A320neo', capacity: 165, range: 6300, speed: 833, cost: 42000000, operatingCost: 2600, seatConfig: { economy: 148, business: 17, first: 0 } },
+  { name: 'Widebody', model: 'Boeing 767-300ER', capacity: 218, range: 11093, speed: 851, cost: 55000000, operatingCost: 4500, seatConfig: { economy: 174, business: 38, first: 6 } },
+  { name: 'Next-Gen Widebody', model: 'Boeing 787-9', capacity: 296, range: 14140, speed: 903, cost: 95000000, operatingCost: 5800, seatConfig: { economy: 247, business: 42, first: 7 } },
+  { name: 'Long-Haul Widebody', model: 'Boeing 777-300ER', capacity: 396, range: 13650, speed: 905, cost: 120000000, operatingCost: 7500, seatConfig: { economy: 316, business: 68, first: 12 } },
+  { name: 'Super Jumbo', model: 'Airbus A380', capacity: 555, range: 15200, speed: 903, cost: 180000000, operatingCost: 10000, seatConfig: { economy: 421, business: 97, first: 14 } },
 ];
+
+/** Load factors (fraction of seats sold) per cabin class */
+const ECONOMY_LOAD_FACTOR = 0.80;
+const BUSINESS_LOAD_FACTOR = 0.70;
+const FIRST_LOAD_FACTOR = 0.65;
+
+/** Revenue multiplier relative to economy base fare */
+export const BUSINESS_FARE_MULTIPLIER = 2.5;
+export const FIRST_FARE_MULTIPLIER = 4.0;
 
 @Injectable({ providedIn: 'root' })
 export class GameStateService {
@@ -102,7 +146,8 @@ export class GameStateService {
     speed: 1,
     aircraft: [],
     routes: [],
-    hubs: []
+    hubs: [],
+    schedule: []
   };
 
   private stateSubject = new BehaviorSubject<GameState>({ ...this.state });
@@ -152,7 +197,13 @@ export class GameStateService {
         if (aircraft) {
           const flightTime = route.distance / aircraft.speed;
           const dailyFlights = Math.floor(20 / flightTime);
-          dailyRevenue += dailyFlights * aircraft.capacity * route.price * 0.8;
+          const sc = aircraft.seatConfig;
+          // Business tickets are 2.5× economy, first class 4×
+          const revenuePerFlight =
+            sc.economy * route.price * ECONOMY_LOAD_FACTOR +
+            sc.business * route.price * BUSINESS_FARE_MULTIPLIER * BUSINESS_LOAD_FACTOR +
+            sc.first * route.price * FIRST_FARE_MULTIPLIER * FIRST_LOAD_FACTOR;
+          dailyRevenue += dailyFlights * revenuePerFlight;
           dailyCosts += flightTime * aircraft.operatingCost * dailyFlights;
         }
       }
@@ -179,6 +230,7 @@ export class GameStateService {
     if (this.state.money < catalog.cost) return false;
     const aircraft: Aircraft = {
       ...catalog,
+      seatConfig: { ...catalog.seatConfig },
       id: `ac-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     };
     this.state.money -= catalog.cost;
@@ -270,6 +322,28 @@ export class GameStateService {
       const aircraft = this.state.aircraft.find(a => a.id === route.aircraftId);
       if (aircraft) aircraft.assignedRouteId = undefined;
       route.aircraftId = undefined;
+      this.stateSubject.next({ ...this.state });
+    }
+  }
+
+  updateSeatConfig(aircraftId: string, config: SeatConfig): void {
+    const aircraft = this.state.aircraft.find(a => a.id === aircraftId);
+    if (!aircraft) return;
+    aircraft.seatConfig = { ...config };
+    aircraft.capacity = config.economy + config.business + config.first;
+    this.stateSubject.next({ ...this.state });
+  }
+
+  addScheduleSlot(slot: Omit<ScheduleSlot, 'id'>): void {
+    const newSlot: ScheduleSlot = { ...slot, id: `sl-${Date.now()}-${Math.random().toString(36).substring(2, 5)}` };
+    this.state.schedule.push(newSlot);
+    this.stateSubject.next({ ...this.state });
+  }
+
+  removeScheduleSlot(slotId: string): void {
+    const idx = this.state.schedule.findIndex(s => s.id === slotId);
+    if (idx !== -1) {
+      this.state.schedule.splice(idx, 1);
       this.stateSubject.next({ ...this.state });
     }
   }

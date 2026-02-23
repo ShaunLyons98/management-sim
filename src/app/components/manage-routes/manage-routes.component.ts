@@ -20,13 +20,13 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
       </div>
 
       <div class="content">
-        <!-- Hubs Section -->
+        <!-- Hubs Section (view-only – purchase hubs on the map) -->
         <div class="section">
-          <h3 class="section-title">🏢 Hub Airports</h3>
-          <p class="section-desc">Own hub airports to operate routes from them. Cost: $10M first slot, $2M per additional slot.</p>
+          <h3 class="section-title">🏢 Owned Hubs</h3>
+          <p class="section-desc">Hub airports are purchased directly from the world map. Additional slots can be bought here.</p>
 
           <div *ngIf="!state?.hubs?.length" class="sub-empty">
-            No hubs owned. Buy hub slots from the map or below.
+            No hubs owned yet — click an airport on the map to buy a hub.
           </div>
 
           <div class="hub-list" *ngIf="state?.hubs?.length">
@@ -46,23 +46,6 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
               </div>
             </div>
           </div>
-
-          <!-- Buy Hub -->
-          <div class="buy-hub card">
-            <h4>Buy New Hub</h4>
-            <div class="form-row">
-              <select [(ngModel)]="selectedHubAirport" class="form-select">
-                <option value="">Select Airport...</option>
-                <option *ngFor="let a of availableHubAirports" [value]="a.id">
-                  {{ a.iata }} - {{ a.city }}, {{ a.country }}
-                </option>
-              </select>
-              <button class="btn btn-primary" [disabled]="!selectedHubAirport || (state?.money || 0) < 10000000"
-                      (click)="buyHub()">
-                Buy Hub ($10M)
-              </button>
-            </div>
-          </div>
         </div>
 
         <!-- Routes Section -->
@@ -70,7 +53,6 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
           <h3 class="section-title">✈ Routes</h3>
           <p class="section-desc">Routes cost $500K to open. Assign aircraft to generate revenue.</p>
 
-          <!-- Existing routes -->
           <div class="route-list" *ngIf="state?.routes?.length">
             <div class="route-card card" *ngFor="let route of state?.routes">
               <div class="route-header">
@@ -97,7 +79,7 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
                   <span class="dv">{{ getAirport(route.toAirportId)?.name }}</span>
                 </div>
                 <div class="detail">
-                  <span class="dl">Ticket Price</span>
+                  <span class="dl">Economy Price</span>
                   <span class="dv">{{ route.price | currency }}</span>
                 </div>
               </div>
@@ -147,7 +129,7 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
                 </select>
               </div>
               <div class="form-group">
-                <label>Ticket Price ($)</label>
+                <label>Economy Ticket Price ($)</label>
                 <input type="number" [(ngModel)]="newRoute.price" class="form-input"
                        min="50" max="5000" step="10" />
               </div>
@@ -162,7 +144,7 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
           </div>
 
           <div class="sub-empty card" *ngIf="!state?.hubs?.length">
-            You need to own at least one hub airport before you can open routes.
+            You need to own at least one hub airport before you can open routes. Click an airport on the map to buy a hub.
           </div>
         </div>
       </div>
@@ -277,23 +259,6 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
       gap: 8px;
     }
 
-    .buy-hub {
-      padding: 20px;
-    }
-
-    .buy-hub h4, .buy-route h4 {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 12px;
-    }
-
-    .form-row {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
     .form-select, .form-input {
       padding: 8px 12px;
       border: 1px solid var(--border);
@@ -314,9 +279,7 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
       margin-bottom: 16px;
     }
 
-    .route-card {
-      padding: 16px 20px;
-    }
+    .route-card { padding: 16px 20px; }
 
     .route-header {
       display: flex;
@@ -331,16 +294,8 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
       gap: 8px;
     }
 
-    .route-code {
-      font-size: 22px;
-      font-weight: 800;
-      color: var(--primary-dark);
-    }
-
-    .route-arrow {
-      font-size: 18px;
-      color: var(--primary-lighter);
-    }
+    .route-code { font-size: 22px; font-weight: 800; color: var(--primary-dark); }
+    .route-arrow { font-size: 18px; color: var(--primary-lighter); }
 
     .route-meta {
       display: flex;
@@ -357,10 +312,7 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
       border-radius: var(--radius-sm);
     }
 
-    .detail {
-      display: flex;
-      flex-direction: column;
-    }
+    .detail { display: flex; flex-direction: column; }
     .dl { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; }
     .dv { font-size: 13px; font-weight: 600; }
 
@@ -377,8 +329,12 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
       align-items: center;
     }
 
-    .buy-route {
-      padding: 20px;
+    .buy-route { padding: 20px; }
+    .buy-route h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
     }
 
     .form-grid {
@@ -395,14 +351,11 @@ import { GameStateService, GameState, AIRPORTS, Airport } from '../../services/g
     }
     .form-group label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
 
-    .form-action {
-      justify-content: flex-end;
-    }
+    .form-action { justify-content: flex-end; }
   `]
 })
 export class ManageRoutesComponent implements OnInit {
   state?: GameState;
-  selectedHubAirport = '';
   newRoute = { from: '', to: '', price: 250 };
 
   constructor(public router: Router, private gameState: GameStateService) {}
@@ -415,23 +368,12 @@ export class ManageRoutesComponent implements OnInit {
     return AIRPORTS.find(a => a.id === id);
   }
 
-  get availableHubAirports(): Airport[] {
-    const ownedIds = new Set(this.state?.hubs.map(h => h.airportId) || []);
-    return AIRPORTS.filter(a => !ownedIds.has(a.id));
-  }
-
   getAvailableDestinations(): Airport[] {
     return AIRPORTS.filter(a => a.id !== this.newRoute.from);
   }
 
   getAvailableAircraft(routeId: string) {
     return this.state?.aircraft.filter(ac => !ac.assignedRouteId || ac.assignedRouteId === routeId) || [];
-  }
-
-  buyHub(): void {
-    if (!this.selectedHubAirport) return;
-    this.gameState.buyHub(this.selectedHubAirport);
-    this.selectedHubAirport = '';
   }
 
   addSlot(airportId: string): void {
@@ -461,3 +403,4 @@ export class ManageRoutesComponent implements OnInit {
 
   goBack(): void { this.router.navigate(['/game']); }
 }
+

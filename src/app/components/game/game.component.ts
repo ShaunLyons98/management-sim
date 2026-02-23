@@ -11,65 +11,30 @@ import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../ser
   imports: [CommonModule],
   template: `
     <div class="game-container">
-      <!-- Top HUD -->
-      <div class="hud-top animate-fade-in">
-        <div class="hud-logo" (click)="goToMenu()">✈ AirSim</div>
 
-        <div class="hud-stats">
-          <div class="stat-item">
-            <span class="stat-label">Cash</span>
-            <span class="stat-value money">{{ state?.money | currency:'USD':'symbol':'1.0-0' }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Fleet</span>
-            <span class="stat-value">{{ state?.aircraft?.length || 0 }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Routes</span>
-            <span class="stat-value">{{ state?.routes?.length || 0 }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Hubs</span>
-            <span class="stat-value">{{ state?.hubs?.length || 0 }}</span>
-          </div>
-        </div>
-
-        <div class="hud-time">
-          <div class="time-display">
-            <span class="day">Day {{ state?.day }}</span>
-            <span class="clock">{{ formatTime(state?.hour || 0, state?.minute || 0) }}</span>
-          </div>
-          <div class="time-controls">
-            <button class="time-btn" (click)="togglePause()">
-              {{ state?.paused ? '▶' : '⏸' }}
-            </button>
-            <button class="time-btn" [class.active]="state?.speed === 1" (click)="setSpeed(1)">1x</button>
-            <button class="time-btn" [class.active]="state?.speed === 2" (click)="setSpeed(2)">2x</button>
-            <button class="time-btn" [class.active]="state?.speed === 4" (click)="setSpeed(4)">4x</button>
-          </div>
-        </div>
+      <!-- ── Top navigation bar ── -->
+      <div class="top-bar animate-fade-in">
+        <div class="top-bar-brand" (click)="goToMenu()">✈ AirSim</div>
+        <nav class="top-nav">
+          <button class="nav-btn" (click)="navigate('/buy-aircraft')">
+            <span class="nav-icon">🛒</span> Buy Aircraft
+          </button>
+          <button class="nav-btn" (click)="navigate('/manage-aircraft')">
+            <span class="nav-icon">✈️</span> Fleet
+          </button>
+          <button class="nav-btn" (click)="navigate('/manage-routes')">
+            <span class="nav-icon">🗺️</span> Routes
+          </button>
+          <button class="nav-btn" (click)="navigate('/scheduler')">
+            <span class="nav-icon">📅</span> Schedule
+          </button>
+        </nav>
       </div>
 
-      <!-- Map -->
+      <!-- ── Map (fills between top and bottom bars) ── -->
       <div #mapContainer class="map-container"></div>
 
-      <!-- Side Panel -->
-      <div class="side-panel animate-slide-in">
-        <button class="panel-btn" (click)="navigate('/buy-aircraft')">
-          <span class="panel-icon">🛒</span>
-          <span>Buy Aircraft</span>
-        </button>
-        <button class="panel-btn" (click)="navigate('/manage-aircraft')">
-          <span class="panel-icon">✈️</span>
-          <span>Fleet</span>
-        </button>
-        <button class="panel-btn" (click)="navigate('/manage-routes')">
-          <span class="panel-icon">🗺️</span>
-          <span>Routes</span>
-        </button>
-      </div>
-
-      <!-- Selected Airport Panel -->
+      <!-- ── Airport info popup (above bottom bar) ── -->
       <div class="airport-panel animate-fade-in" *ngIf="selectedAirport">
         <div class="airport-panel-header">
           <div>
@@ -80,6 +45,24 @@ import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../ser
           <button class="close-btn" (click)="selectedAirport = null">✕</button>
         </div>
         <div class="airport-panel-body">
+          <div class="pax-stats">
+            <div class="pax-row">
+              <span class="pax-label">Annual Pax</span>
+              <span class="pax-val">{{ selectedAirport.passengerMix.annualPax }}M</span>
+            </div>
+            <div class="pax-row">
+              <span class="pax-label">Economy</span>
+              <span class="pax-val">{{ (selectedAirport.passengerMix.ecoShare * 100) | number:'1.0-0' }}%</span>
+            </div>
+            <div class="pax-row">
+              <span class="pax-label">Business</span>
+              <span class="pax-val">{{ (selectedAirport.passengerMix.businessShare * 100) | number:'1.0-0' }}%</span>
+            </div>
+            <div class="pax-row">
+              <span class="pax-label">First Class</span>
+              <span class="pax-val">{{ (selectedAirport.passengerMix.firstShare * 100) | number:'1.0-0' }}%</span>
+            </div>
+          </div>
           <div class="hub-status" *ngIf="isHub(selectedAirport.id)">
             <span class="badge badge-success">✓ Hub Owned</span>
             <span class="chip">{{ getHubSlots(selectedAirport.id) }} slots</span>
@@ -92,6 +75,49 @@ import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../ser
           </div>
         </div>
       </div>
+
+      <!-- ── Bottom HUD bar ── -->
+      <div class="bottom-bar animate-fade-in">
+        <div class="bottom-stats">
+          <div class="stat-item">
+            <span class="stat-label">Cash</span>
+            <span class="stat-value money">{{ state?.money | currency:'USD':'symbol':'1.0-0' }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">Fleet</span>
+            <span class="stat-value">{{ state?.aircraft?.length || 0 }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">Routes</span>
+            <span class="stat-value">{{ state?.routes?.length || 0 }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">Hubs</span>
+            <span class="stat-value">{{ state?.hubs?.length || 0 }}</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">Flights/wk</span>
+            <span class="stat-value">{{ state?.schedule?.length || 0 }}</span>
+          </div>
+        </div>
+
+        <div class="time-block">
+          <div class="time-date">Day {{ state?.day }}</div>
+          <div class="time-clock">{{ formatTime(state?.hour || 0, state?.minute || 0) }}</div>
+          <div class="time-controls">
+            <button class="time-btn" (click)="togglePause()" [title]="state?.paused ? 'Resume' : 'Pause'">
+              {{ state?.paused ? '▶' : '⏸' }}
+            </button>
+            <button class="time-btn" [class.active]="state?.speed === 1" (click)="setSpeed(1)">1×</button>
+            <button class="time-btn" [class.active]="state?.speed === 2" (click)="setSpeed(2)">2×</button>
+            <button class="time-btn" [class.active]="state?.speed === 4" (click)="setSpeed(4)">4×</button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -100,85 +126,214 @@ import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../ser
       height: 100vh;
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
-    .hud-top {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
+    /* ── Top bar ── */
+    .top-bar {
+      position: relative;
       z-index: 1000;
-      background: rgba(255, 255, 255, 0.95);
+      background: rgba(255, 255, 255, 0.97);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
-      box-shadow: 0 2px 12px var(--shadow);
+      box-shadow: 0 2px 10px var(--shadow);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 8px 16px;
+      padding: 0 16px;
+      height: 52px;
       gap: 16px;
+      flex-shrink: 0;
     }
 
-    .hud-logo {
-      font-size: 20px;
+    .top-bar-brand {
+      font-size: 18px;
       font-weight: 800;
       color: var(--primary-dark);
       cursor: pointer;
+      white-space: nowrap;
       transition: color 0.2s;
+      margin-right: 8px;
+    }
+    .top-bar-brand:hover { color: var(--primary-lighter); }
+
+    .top-nav {
+      display: flex;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
       white-space: nowrap;
     }
-    .hud-logo:hover { color: var(--primary-lighter); }
+    .nav-btn:hover {
+      background: var(--primary-light);
+      color: white;
+      border-color: var(--primary-light);
+      transform: translateY(-1px);
+    }
+    .nav-icon { font-size: 15px; }
 
-    .hud-stats {
-      display: flex;
-      gap: 24px;
+    /* ── Map ── */
+    .map-container {
       flex: 1;
-      justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Airport panel ── */
+    .airport-panel {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(10px);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 20px var(--shadow);
+      border: 1px solid var(--border);
+      min-width: 320px;
+      overflow: hidden;
+    }
+
+    .airport-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, #1565c0, #1976d2);
+      color: white;
+    }
+
+    .airport-iata { font-size: 26px; font-weight: 800; letter-spacing: 2px; }
+    .airport-name { font-size: 13px; font-weight: 600; opacity: 0.9; }
+    .airport-city { font-size: 11px; opacity: 0.75; }
+
+    .close-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 26px;
+      height: 26px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .close-btn:hover { background: rgba(255, 255, 255, 0.35); }
+
+    .airport-panel-body { padding: 14px 16px; }
+
+    .pax-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+    }
+    .pax-row { display: flex; justify-content: space-between; align-items: center; }
+    .pax-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; }
+    .pax-val { font-size: 13px; font-weight: 700; color: var(--text); }
+
+    .hub-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .route-count {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* ── Bottom bar ── */
+    .bottom-bar {
+      position: relative;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -2px 10px var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      height: 60px;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    .bottom-stats {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex: 1;
     }
 
     .stat-item {
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: 0 20px;
     }
 
     .stat-label {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
     .stat-value {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--text);
     }
     .stat-value.money { color: var(--success); }
 
-    .hud-time {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
+    .stat-divider {
+      width: 1px;
+      height: 28px;
+      background: var(--border);
     }
 
-    .time-display {
+    /* ── Time block (right side of bottom bar) ── */
+    .time-block {
       display: flex;
-      gap: 12px;
       align-items: center;
+      gap: 12px;
+      border-left: 1px solid var(--border);
+      padding-left: 20px;
     }
 
-    .day {
-      font-size: 13px;
+    .time-date {
+      font-size: 12px;
       color: var(--text-secondary);
+      white-space: nowrap;
     }
 
-    .clock {
-      font-size: 18px;
+    .time-clock {
+      font-size: 22px;
       font-weight: 700;
       color: var(--primary-dark);
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     .time-controls {
@@ -187,7 +342,7 @@ import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../ser
     }
 
     .time-btn {
-      padding: 3px 10px;
+      padding: 4px 10px;
       border: 1px solid var(--border);
       border-radius: 6px;
       background: var(--surface);
@@ -200,120 +355,6 @@ import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../ser
       background: var(--primary-light);
       color: white;
       border-color: var(--primary-light);
-    }
-
-    .map-container {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-    }
-
-    .side-panel {
-      position: absolute;
-      top: 50%;
-      right: 16px;
-      transform: translateY(-50%);
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .panel-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      cursor: pointer;
-      box-shadow: 0 2px 8px var(--shadow);
-      transition: all 0.2s;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      min-width: 72px;
-    }
-    .panel-btn:hover {
-      background: var(--primary-light);
-      color: white;
-      transform: translateX(-2px);
-      box-shadow: 0 4px 16px var(--shadow);
-    }
-
-    .panel-icon { font-size: 22px; }
-
-    .airport-panel {
-      position: absolute;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      background: rgba(255, 255, 255, 0.97);
-      backdrop-filter: blur(10px);
-      border-radius: var(--radius);
-      box-shadow: 0 4px 20px var(--shadow);
-      border: 1px solid var(--border);
-      min-width: 300px;
-      overflow: hidden;
-    }
-
-    .airport-panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      padding: 16px;
-      background: linear-gradient(135deg, #1565c0, #1976d2);
-      color: white;
-    }
-
-    .airport-iata {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: 2px;
-    }
-
-    .airport-name {
-      font-size: 14px;
-      font-weight: 600;
-      opacity: 0.9;
-    }
-
-    .airport-city {
-      font-size: 12px;
-      opacity: 0.75;
-    }
-
-    .close-btn {
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      color: white;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .close-btn:hover { background: rgba(255, 255, 255, 0.35); }
-
-    .airport-panel-body {
-      padding: 16px;
-    }
-
-    .hub-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .route-count {
-      margin-top: 8px;
-      font-size: 13px;
-      color: var(--text-secondary);
     }
   `]
 })
@@ -359,24 +400,26 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
       attributionControl: true
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      subdomains: ['a', 'b', 'c']
+    // CartoDB Positron — clean white/grey/black style
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
     }).addTo(this.map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(this.map);
 
     AIRPORTS.forEach(airport => {
       const marker = L.circleMarker([airport.lat, airport.lng], {
-        radius: 6,
+        radius: 5,
         fillColor: '#1976d2',
         color: '#fff',
-        weight: 2,
+        weight: 1.5,
         opacity: 1,
-        fillOpacity: 0.8
+        fillOpacity: 0.85
       }).addTo(this.map!);
 
-      marker.bindTooltip(`${airport.iata} - ${airport.city}`, {
+      marker.bindTooltip(`${airport.iata} — ${airport.city}`, {
         permanent: false,
         direction: 'top',
         offset: [0, -8]
@@ -396,9 +439,9 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
       const isHub = this.gameState.hasHub(id);
       const isSelected = id === airportId;
       marker.setStyle({
-        radius: isSelected ? 10 : (isHub ? 8 : 6),
-        fillColor: isSelected ? '#f57c00' : (isHub ? '#2e7d32' : '#1976d2'),
-        fillOpacity: isSelected ? 1 : (isHub ? 0.9 : 0.8)
+        radius: isSelected ? 9 : (isHub ? 7 : 5),
+        fillColor: isSelected ? '#e65100' : (isHub ? '#2e7d32' : '#1976d2'),
+        fillOpacity: isSelected ? 1 : (isHub ? 0.9 : 0.85)
       });
     });
   }
@@ -410,10 +453,10 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
       const isHub = this.gameState.hasHub(id);
       const isSelected = this.selectedAirport?.id === id;
       marker.setStyle({
-        radius: isSelected ? 10 : (isHub ? 8 : 6),
-        fillColor: isSelected ? '#f57c00' : (isHub ? '#2e7d32' : '#1976d2'),
-        fillOpacity: isSelected ? 1 : (isHub ? 0.9 : 0.8),
-        weight: isHub ? 3 : 2
+        radius: isSelected ? 9 : (isHub ? 7 : 5),
+        fillColor: isSelected ? '#e65100' : (isHub ? '#2e7d32' : '#1976d2'),
+        fillOpacity: isSelected ? 1 : (isHub ? 0.9 : 0.85),
+        weight: isHub ? 2.5 : 1.5
       });
     });
 
@@ -434,21 +477,18 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
       if (!this.routeLines.has(route.id)) {
         const line = L.polyline([[from.lat, from.lng], [to.lat, to.lng]], {
           color: route.aircraftId ? '#1565c0' : '#90caf9',
-          weight: route.aircraftId ? 2.5 : 1.5,
-          opacity: 0.8,
-          dashArray: route.aircraftId ? undefined : '5, 8'
+          weight: route.aircraftId ? 2 : 1.5,
+          opacity: 0.75,
+          dashArray: route.aircraftId ? undefined : '6, 8'
         }).addTo(this.map!);
 
-        line.bindTooltip(`${from.iata} → ${to.iata} | ${route.distance} km`, {
-          direction: 'top'
-        });
-
+        line.bindTooltip(`${from.iata} → ${to.iata} | ${route.distance} km`, { direction: 'top' });
         this.routeLines.set(route.id, line);
       } else {
         this.routeLines.get(route.id)!.setStyle({
           color: route.aircraftId ? '#1565c0' : '#90caf9',
-          weight: route.aircraftId ? 2.5 : 1.5,
-          dashArray: route.aircraftId ? undefined : '5, 8'
+          weight: route.aircraftId ? 2 : 1.5,
+          dashArray: route.aircraftId ? undefined : '6, 8'
         });
       }
     });
