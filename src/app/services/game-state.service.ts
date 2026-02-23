@@ -55,8 +55,12 @@ export interface Route {
   fromAirportId: string;
   toAirportId: string;
   aircraftId?: string;
-  /** Base economy ticket price */
+  /** Economy ticket price */
   price: number;
+  /** Business class ticket price */
+  businessPrice: number;
+  /** First class ticket price */
+  firstPrice: number;
   distance: number;
   active: boolean;
 }
@@ -135,6 +139,28 @@ const FIRST_LOAD_FACTOR = 0.65;
 export const BUSINESS_FARE_MULTIPLIER = 2.5;
 export const FIRST_FARE_MULTIPLIER = 4.0;
 
+/** Ground turnaround time added to every flight when checking schedule conflicts (minutes) */
+export const TURNAROUND_MINUTES = 60;
+
+/** Game epoch – the in-game calendar starts on this date */
+export const GAME_START_DATE = new Date(2024, 0, 1); // 1 Jan 2024
+
+/** Convert a game day number (1-based) to a human-readable date string e.g. "Mon 1 Jan 2024" */
+export function formatGameDate(day: number): string {
+  const d = new Date(GAME_START_DATE.getTime() + (day - 1) * 86400000);
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${weekdays[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** Suggest economy/business/first prices for a route based on distance */
+export function suggestPrices(distanceKm: number): { economy: number; business: number; first: number } {
+  const economy = Math.round((50 + distanceKm * 0.08) / 10) * 10;
+  const business = Math.round(economy * BUSINESS_FARE_MULTIPLIER / 10) * 10;
+  const first = Math.round(economy * FIRST_FARE_MULTIPLIER / 10) * 10;
+  return { economy, business, first };
+}
+
 @Injectable({ providedIn: 'root' })
 export class GameStateService {
   private state: GameState = {
@@ -198,11 +224,10 @@ export class GameStateService {
           const flightTime = route.distance / aircraft.speed;
           const dailyFlights = Math.floor(20 / flightTime);
           const sc = aircraft.seatConfig;
-          // Business tickets are 2.5× economy, first class 4×
           const revenuePerFlight =
-            sc.economy * route.price * ECONOMY_LOAD_FACTOR +
-            sc.business * route.price * BUSINESS_FARE_MULTIPLIER * BUSINESS_LOAD_FACTOR +
-            sc.first * route.price * FIRST_FARE_MULTIPLIER * FIRST_LOAD_FACTOR;
+            sc.economy  * route.price         * ECONOMY_LOAD_FACTOR +
+            sc.business * route.businessPrice  * BUSINESS_LOAD_FACTOR +
+            sc.first    * route.firstPrice     * FIRST_LOAD_FACTOR;
           dailyRevenue += dailyFlights * revenuePerFlight;
           dailyCosts += flightTime * aircraft.operatingCost * dailyFlights;
         }
@@ -275,7 +300,7 @@ export class GameStateService {
     return !!this.state.hubs.find(h => h.airportId === airportId);
   }
 
-  buyRoute(fromAirportId: string, toAirportId: string, price: number): boolean {
+  buyRoute(fromAirportId: string, toAirportId: string, price: number, businessPrice?: number, firstPrice?: number): boolean {
     const routeCost = 500000;
     if (this.state.money < routeCost) return false;
     if (!this.hasHub(fromAirportId)) return false;
@@ -283,12 +308,15 @@ export class GameStateService {
     const from = AIRPORTS.find(a => a.id === fromAirportId)!;
     const to = AIRPORTS.find(a => a.id === toAirportId)!;
     const distance = this.calcDistance(from.lat, from.lng, to.lat, to.lng);
+    const suggested = suggestPrices(distance);
 
     const route: Route = {
       id: `rt-${Date.now()}`,
       fromAirportId,
       toAirportId,
       price,
+      businessPrice: businessPrice ?? suggested.business,
+      firstPrice: firstPrice ?? suggested.first,
       distance,
       active: true
     };
@@ -346,6 +374,42 @@ export class GameStateService {
       this.state.schedule.splice(idx, 1);
       this.stateSubject.next({ ...this.state });
     }
+  }
+
+  /** Flight duration in minutes for a given route and aircraft */
+  getFlightDurationMins(routeId: string, aircraftId: string): number {
+    const route = this.state.routes.find(r => r.id === routeId);
+    const aircraft = this.state.aircraft.find(a => a.id === aircraftId);
+    if (!route || !aircraft) return 0;
+    return Math.ceil(route.distance / aircraft.speed * 60);
+  }
+
+  /**
+   * Returns true if adding the slot would cause an overlap for the aircraft.
+   * Checks across a flat weekly window; each slot occupies [depMins, depMins + duration + turnaround].
+   */
+  checkScheduleConflict(
+    aircraftId: string,
+    dayOfWeek: number,
+    departureHour: number,
+    departureMinute: number,
+    routeId: string,
+    excludeSlotId?: string
+  ): boolean {
+    const newStart = dayOfWeek * 24 * 60 + departureHour * 60 + departureMinute;
+    const newDur = this.getFlightDurationMins(routeId, aircraftId);
+    const newEnd = newStart + newDur + TURNAROUND_MINUTES;
+
+    for (const slot of this.state.schedule) {
+      if (slot.aircraftId !== aircraftId) continue;
+      if (slot.id === excludeSlotId) continue;
+      const slotStart = slot.dayOfWeek * 24 * 60 + slot.departureHour * 60 + slot.departureMinute;
+      const slotDur = this.getFlightDurationMins(slot.routeId, slot.aircraftId);
+      const slotEnd = slotStart + slotDur + TURNAROUND_MINUTES;
+      // Overlap test
+      if (newStart < slotEnd && newEnd > slotStart) return true;
+    }
+    return false;
   }
 
   private calcDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {

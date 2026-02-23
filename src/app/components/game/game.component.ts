@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
-import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../services/game-state.service';
+import { GameStateService, GameState, Airport, Route, AIRPORTS, formatGameDate } from '../../services/game-state.service';
 
 @Component({
   selector: 'app-game',
@@ -106,7 +106,7 @@ import { GameStateService, GameState, Airport, Route, AIRPORTS } from '../../ser
         </div>
 
         <div class="time-block">
-          <div class="time-date">Day {{ state?.day }}</div>
+          <div class="time-date">{{ formatGameDate(state?.day || 1) }}</div>
           <div class="time-clock">{{ formatTime(state?.hour || 0, state?.minute || 0) }}</div>
           <div class="time-controls">
             <button class="time-btn" (click)="togglePause()" [title]="state?.paused ? 'Resume' : 'Pause'">
@@ -367,6 +367,8 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
   private map?: L.Map;
   private markerMap = new Map<string, L.CircleMarker>();
   private routeLines = new Map<string, L.Polyline>();
+  /** Animated aircraft-position dots keyed by scheduleSlot id */
+  private aircraftDots = new Map<string, L.CircleMarker>();
   private sub?: Subscription;
 
   constructor(
@@ -492,11 +494,14 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
         });
       }
     });
+    this.updateAircraftDots();
   }
 
   formatTime(h: number, m: number): string {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }
+
+  formatGameDate(day: number): string { return formatGameDate(day); }
 
   togglePause(): void { this.gameState.setPaused(!this.state?.paused); }
   setSpeed(s: number): void { this.gameState.setSpeed(s); }
@@ -517,4 +522,66 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
 
   navigate(path: string): void { this.router.navigate([path]); }
   goToMenu(): void { this.router.navigate(['/menu']); }
+
+  /** Update animated aircraft position dots for all flying schedule slots */
+  private updateAircraftDots(): void {
+    if (!this.map || !this.state) return;
+    const WEEK_MINS = 7 * 24 * 60;
+    const dayOfWeek = (this.state.day - 1) % 7;
+    const currentMins = dayOfWeek * 24 * 60 + this.state.hour * 60 + this.state.minute;
+
+    const activeSlotIds = new Set<string>();
+
+    for (const slot of this.state.schedule) {
+      const route = this.state.routes.find(r => r.id === slot.routeId);
+      const aircraft = this.state.aircraft.find(a => a.id === slot.aircraftId);
+      if (!route || !aircraft) continue;
+
+      const from = AIRPORTS.find(a => a.id === route.fromAirportId);
+      const to = AIRPORTS.find(a => a.id === route.toAirportId);
+      if (!from || !to) continue;
+
+      const depMins = slot.dayOfWeek * 24 * 60 + slot.departureHour * 60 + slot.departureMinute;
+      const durationMins = Math.ceil(route.distance / aircraft.speed * 60);
+      const arrMins = depMins + durationMins;
+
+      if (currentMins < depMins || currentMins >= arrMins) {
+        // Not flying this tick
+        if (this.aircraftDots.has(slot.id)) {
+          this.aircraftDots.get(slot.id)!.remove();
+          this.aircraftDots.delete(slot.id);
+        }
+        continue;
+      }
+
+      const t = (currentMins - depMins) / durationMins;
+      const lat = from.lat + t * (to.lat - from.lat);
+      const lng = from.lng + t * (to.lng - from.lng);
+
+      activeSlotIds.add(slot.id);
+
+      if (!this.aircraftDots.has(slot.id)) {
+        const dot = L.circleMarker([lat, lng], {
+          radius: 7,
+          fillColor: '#ff6f00',
+          color: '#fff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 1
+        }).addTo(this.map);
+        dot.bindTooltip(`✈ ${from.iata} → ${to.iata} · ${aircraft.name}`, { direction: 'top' });
+        this.aircraftDots.set(slot.id, dot);
+      } else {
+        this.aircraftDots.get(slot.id)!.setLatLng([lat, lng]);
+      }
+    }
+
+    // Clean up dots for removed slots
+    this.aircraftDots.forEach((dot, id) => {
+      if (!activeSlotIds.has(id)) {
+        dot.remove();
+        this.aircraftDots.delete(id);
+      }
+    });
+  }
 }
